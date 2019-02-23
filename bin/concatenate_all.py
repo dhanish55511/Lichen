@@ -23,6 +23,44 @@ def parse_args():
     return parser.parse_args()
 
 
+def consider_file(prefix,my_files,expressions,my_dir,base_path,my_cf):
+    #Determine if regex should be used
+    files = sorted(my_files)
+
+    # skip the results folder if there are no expressions
+    if expressions == None and prefix != "":
+        return
+
+    if(expressions != None):
+        files_filtered = []
+        for e2 in expressions:
+            e = e2
+            # only match the expression if the prefix matches
+            if e[0:8]=="results:":
+                e = e[8:]
+                if prefix!="results:":
+                    continue
+            else:
+                if prefix=="results:":
+                    continue
+            files_filtered.extend(fnmatch.filter(files, e.strip()))
+        files = files_filtered
+
+    for my_file in files:
+        # skip the timestep
+        if my_file == ".submit.timestamp":
+            continue
+        absolute_path=os.path.join(my_dir,my_file)
+        relative_path=absolute_path[len(base_path):]
+        # print a separator & filename
+        my_cf.write("----------------------------------------------------\n")
+        my_cf.write("FILE: "+relative_path+"\n\n")
+        with open(absolute_path, encoding='ISO-8859-1') as tmp:
+            # append the contents of the file
+            my_cf.write(tmp.read())
+        my_cf.write("\n")
+
+
 def main():
     args = parse_args()
 
@@ -49,6 +87,7 @@ def main():
     if not os.path.isdir(submission_dir):
         print("ERROR! ",submission_dir," is not a valid gradeable submissions directory")
         exit(1)
+    results_dir=os.path.join(course_dir,"results",gradeable)
 
     # ===========================================================================
     # create the directory
@@ -81,26 +120,10 @@ def main():
                 # loop over all files in all subdirectories
                 base_path = os.path.join(submission_dir,user,version)
                 for my_dir,dirs,my_files in os.walk(base_path):
-                    #Determine if regex should be used
-                    files = sorted(my_files)
-                    if(expressions != None):
-                        files_filtered = []
-                        for e in expressions:
-                            files_filtered.extend(fnmatch.filter(files, e.strip()))
-                        files = files_filtered
-                    for my_file in files:
-                        # skip the timestep
-                        if my_file == ".submit.timestamp":
-                            continue
-                        absolute_path=os.path.join(my_dir,my_file)
-                        relative_path=absolute_path[len(base_path):]
-                        # print a separator & filename
-                        my_cf.write("----------------------------------------------------\n")
-                        my_cf.write("FILE: "+relative_path+"\n\n")
-                        with open(absolute_path, encoding='ISO-8859-1') as tmp:
-                            # append the contents of the file
-                            my_cf.write(tmp.read())
-                        my_cf.write("\n")
+                    consider_file("",my_files,expressions,my_dir,base_path,my_cf)
+                base_path = os.path.join(results_dir,user,version)
+                for my_dir,dirs,my_files in os.walk(base_path):
+                    consider_file("results:",my_files,expressions,my_dir,base_path,my_cf)
 
     print ("done")
                             
